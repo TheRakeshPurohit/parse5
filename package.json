@@ -3,7 +3,7 @@
     "private": true,
     "devDependencies": {
         "dedent": "^0.7.0",
-        "eslint": "^4.19.1",
+        "eslint": "^8.3.0",
         "eslint-config-prettier": "^2.9.0",
         "eslint-plugin-prettier": "^2.6.0",
         "husky": "^0.14.3",
