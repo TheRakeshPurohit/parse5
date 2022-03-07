@@ -30,6 +30,15 @@ const VOID_ELEMENTS = new Set<string>([
     $.TRACK,
     $.WBR,
 ]);
+
+function isVoidElement<T extends TreeAdapterTypeMap>(node: T['node'], options: InternalOptions<T>): boolean {
+    return (
+        options.treeAdapter.isElementNode(node) &&
+        options.treeAdapter.getNamespaceURI(node) === NS.HTML &&
+        VOID_ELEMENTS.has(options.treeAdapter.getTagName(node))
+    );
+}
+
 const UNESCAPED_TEXT = new Set<string>([$.STYLE, $.SCRIPT, $.XMP, $.IFRAME, $.NOEMBED, $.NOFRAMES, $.PLAINTEXT]);
 
 export function hasUnescapedText(tn: string, scriptingEnabled: boolean): boolean {
@@ -83,6 +92,11 @@ export function serialize<T extends TreeAdapterTypeMap = DefaultTreeAdapter.Defa
     options?: SerializerOptions<T>
 ): string {
     const opts = { ...defaultOpts, ...options };
+
+    if (isVoidElement(node, opts)) {
+        return '';
+    }
+
     return serializeChildNodes(node, opts);
 }
 
@@ -106,11 +120,11 @@ export function serialize<T extends TreeAdapterTypeMap = DefaultTreeAdapter.Defa
  * @param options Serialization options.
  */
 export function serializeOuter<T extends TreeAdapterTypeMap = DefaultTreeAdapter.DefaultTreeAdapterMap>(
-    node: T['element'],
+    node: T['node'],
     options?: SerializerOptions<T>
 ): string {
     const opts = { ...defaultOpts, ...options };
-    return serializeElement(node, opts);
+    return serializeNode(node, opts);
 }
 
 function serializeChildNodes<T extends TreeAdapterTypeMap>(
@@ -129,28 +143,35 @@ function serializeChildNodes<T extends TreeAdapterTypeMap>(
 
     if (childNodes) {
         for (const currentNode of childNodes) {
-            if (options.treeAdapter.isElementNode(currentNode)) {
-                html += serializeElement(currentNode, options);
-            } else if (options.treeAdapter.isTextNode(currentNode)) {
-                html += serializeTextNode(currentNode, options);
-            } else if (options.treeAdapter.isCommentNode(currentNode)) {
-                html += serializeCommentNode(currentNode, options);
-            } else if (options.treeAdapter.isDocumentTypeNode(currentNode)) {
-                html += serializeDocumentTypeNode(currentNode, options);
-            }
+            html += serializeNode(currentNode, options);
         }
     }
 
     return html;
 }
 
+function serializeNode<T extends TreeAdapterTypeMap>(node: T['node'], options: InternalOptions<T>): string {
+    if (options.treeAdapter.isElementNode(node)) {
+        return serializeElement(node, options);
+    }
+    if (options.treeAdapter.isTextNode(node)) {
+        return serializeTextNode(node, options);
+    }
+    if (options.treeAdapter.isCommentNode(node)) {
+        return serializeCommentNode(node, options);
+    }
+    if (options.treeAdapter.isDocumentTypeNode(node)) {
+        return serializeDocumentTypeNode(node, options);
+    }
+    // Return an empty string for unknown nodes
+    return '';
+}
+
 function serializeElement<T extends TreeAdapterTypeMap>(node: T['element'], options: InternalOptions<T>): string {
     const tn = options.treeAdapter.getTagName(node);
 
     return `<${tn}${serializeAttributes(node, options)}>${
-        options.treeAdapter.getNamespaceURI(node) === NS.HTML && VOID_ELEMENTS.has(tn)
-            ? ''
-            : `${serializeChildNodes(node, options)}</${tn}>`
+        isVoidElement(node, options) ? '' : `${serializeChildNodes(node, options)}</${tn}>`
     }`;
 }
 
